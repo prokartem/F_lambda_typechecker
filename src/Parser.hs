@@ -17,15 +17,37 @@ import Text.Parsec.String (Parser)
 -- Syntax in ADT --
 
 data Type =
-    Type { t :: String }
+    Type { tName :: String }
     | Arrow { ty1 :: Type, ty2 :: Type }
+    | Forall {varName :: String, body :: Type}
     deriving (Eq, Show)
 
 data Term =
     LVar { v :: String }
     | LAbs { absV :: String, ty :: Type, term :: Term }
-    | LApp {te1 :: Term, te2 :: Term}
+    | LApp { te1 :: Term, te2 :: Term }
+    | LTAbs { absT :: String, te :: Term }
+    | LTApp { tyAbs :: Term, ttype :: Type }
+    -- new kind of terms. for parsing purposes only
+    | TermType Type
     deriving Show
+
+-- data Binding =
+--     NameBind
+--     | VarBind Ty
+--     | TyVarBind
+
+-- typeShiftAbove :: Int -> Int -> Ty -> Ty
+-- typeShiftAbove d c tyT = undefined
+--     where
+--         walk :: Int -> Ty -> Ty
+--         walk c tyT = case tyT of
+--             TyVar x n ->
+--                 if x >= c
+--                 then TyVar (x+d) (n+d)
+--                 else TyVar x (n+d)
+--             TyArr tyT1 tyT2 -> TyArr (walk c tyT1)  (walk c tyT2)
+--             TyAll tyX tyT2 -> TyAll tyX (walk (c+1) tyT2)
 
 -- Language --
 
@@ -34,10 +56,11 @@ def = emptyDef{ commentStart = "{-"
               , commentEnd   = "-}"
               , identStart   = letter
               , identLetter  = alphaNum
-              , opStart      = oneOf "-$"
+              , opStart      = oneOf "-$@"
               , opLetter     = oneOf ">"
               , reservedOpNames = ["->", "$"]
-              , reservedNames   = ["lambda", ":", "."]
+              , reservedNames   = ["lambda", ":", ".",
+                                   "Lambda", "Forall", "[", "]"]
             }
 
 TokenParser{ parens = m_parens
@@ -54,31 +77,58 @@ typeParser = buildExpressionParser table typeExpr
     where
         table = [ [Infix (m_reserved "->" >> return Arrow) AssocRight ] ]
         typeExpr =
+            -- type Forall ?
+            do { m_reserved "Forall"
+               ; x <- m_identifier
+               ; m_reserved "."
+               ; Forall x <$> typeParser
+               }
             -- type Arrow ?
-            m_parens typeParser
+            <|> m_parens typeParser
             -- simple Type 
             <|> fmap Type m_identifier
 
 termParser :: Parser Term
 termParser = buildExpressionParser table termExpr
     where
-        table = [ [Infix (m_reserved "$" >> return LApp) AssocLeft ] ]
+        -- this function decides: is it Application or Type-Application
+        typeOrRegularApplication :: Term -> Term -> Term
+        typeOrRegularApplication term1 term2 = case term2 of
+            TermType ttype -> LTApp term1 ttype
+            _              -> LApp term1 term2
+
+        table = [ [Infix (m_reserved "$" >> return typeOrRegularApplication) AssocLeft ] ]
         termExpr =
-            -- lambda-abstraction ?
-            do { m_reserved "lambda"
+            -- lambda-type-abstraction ?
+            do { m_reserved "Lambda"
                 -- parse name of variable
                 ; x <- m_identifier
-                ; m_reserved ":"
-                -- parse type of variable
-                ; ty <- typeParser
                 ; m_reserved "."
                 -- create LAbs and parse lambda-term
-                ; LAbs x ty <$> termParser
+                ; LTAbs x <$> termParser
                 }
-                -- lambda-application ?
-                <|> m_parens termParser
-                -- lambda-variable
-                <|> fmap LVar m_identifier
+            -- lambda-abstraction ?
+            <|> do { m_reserved "lambda"
+                    -- parse name of variable
+                    ; x <- m_identifier
+                    ; m_reserved ":"
+                    -- parse type of variable
+                    ; ty <- typeParser
+                    ; m_reserved "."
+                    -- create LAbs and parse lambda-term
+                    ; LAbs x ty <$> termParser
+                    }
+            -- term-type ?
+            <|> do { m_reserved "["
+                    ; ttype <- typeParser
+                    ; m_reserved "]"
+                    ; return $ TermType ttype
+                    }
+            -- lambda-term ?
+            <|> m_parens termParser
+            -- lambda-variable
+            <|> fmap LVar m_identifier
 
 lambdaParser :: Parser [Term]
 lambdaParser = m_whiteSpace >> m_semiSep1 termParser <* eof
+

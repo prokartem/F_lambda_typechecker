@@ -37,4 +37,80 @@ lambda x : A -> A -> B.
 lambda y : B -> A -> G.
     lambda z : A.
         lambda x : A -> B.
-            y $ (x $ z) $ z
+            y $ (x $ z) $ z;
+
+{- 2.1 -}
+{- K -}
+Lambda X. Lambda Y.
+    lambda x : X.
+        lambda y : Y.
+            x;
+
+{- 2.2 -}
+{- S -}
+Lambda Z. Lambda Y. Lambda X.
+    lambda x : Z -> Y -> X.
+        lambda y : Z -> Y.
+            lambda z : Z.
+                x $ z (y $ z);
+
+{- 2.3 -}
+lambda x : Forall A. A.
+    x $ [(Forall A. A) -> (Forall A. A) -> (Forall A. A)] 
+      $ (
+            x $ [(Forall A. A) -> (Forall A. A)] 
+              $ x
+      ) 
+      $ (
+            x $ [(Forall A. A) -> (Forall A. A) -> (Forall A. A)] 
+              $ x 
+              $ x
+      );
+
+{- polymorphic identity -}
+Lambda X.
+    lambda x : X.
+        x;
+
+{- self-application -}
+lambda x : Forall A. A -> A.
+    x $ [ Forall A. A -> A ] $ x;
+
+{- 2 iterarions -}
+{- iter2 -}
+Lambda X.
+    lambda f : X -> X.
+        lambda x : X.
+            f $ (f $ x);
+
+{- 4 iterarions -}
+Lambda X. (
+        {- iter2 -}
+        Lambda X.
+            lambda f : X -> X. 
+                lambda x : X . 
+                    f $ (f $ x)
+    ) 
+    $ [ X -> X ] 
+    $ ( (
+            {- iter2 -}
+            Lambda X. 
+                lambda f : X -> X. 
+                    lambda x : X . 
+                    f $ (f $ x)
+        ) 
+        $ [ X ]
+    );
+
+{- 0 -}
+Lambda X.
+    lambda s : X -> X.
+        lambda z : X.
+            z;
+
+{- succesor -}
+lambda n : Forall X. (X -> X) -> X -> X.
+    Lambda X.
+        lambda s : X -> X.
+            lambda z : X.
+                s $ (n $ [ X ] $ s $ z)
