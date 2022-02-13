@@ -2,15 +2,19 @@
 
 ## Syntax
 
+### Types
+`T` — type
+- Variable `X`
+- Arrow `T -> T`
+- Universal `Forall X. T`
+
 ### Terms
 `t` — term 
 - Variable `x`
 - Abstraction `lambda x : T. t`
 - Application `t $ t`
-
-### Types
-`T` — type
-- Arrow `T -> T`
+- Type abstraction `Lambda X. t`
+- Type application (should be space after `[`!) `t $ [ T ]`
 
 ### Additional
 - Comments `{- some text -}`
@@ -18,14 +22,16 @@
 
 ### Correct input
 ```
-{- simple term -}
-lambda x : Y -> X. lambda y : Y. x $ y;
+{- self-application -}
+lambda x : Forall A. A -> A.
+    x $ [ Forall A. A -> A ] $ x;
 
-{- complex term with intendation -}
-lambda x : A -> B -> G. 
-    lambda y : A -> B. 
-        lambda z : A. 
-            x $ z $ (y $ z)
+{- succesor -}
+lambda n : Forall X. (X -> X) -> X -> X.
+    Lambda X.
+        lambda s : X -> X.
+            lambda z : X.
+                s $ (n $ [ X ] $ s $ z)
 ```
 
 ## Install
