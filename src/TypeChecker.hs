@@ -14,7 +14,7 @@ type Name = String
 data Formula = Formula { varN :: Name, varType :: BruijnType }
 data Context = Context { typeVar :: [Name], termVar :: [Formula] }
 
--- Unnamed Types (de Bruijn notation) --
+-- Unnamed Types (de Bruijn notation) (but with names) --
 
 data BruijnType =
     BType { varName :: String, distance :: Int }
@@ -33,45 +33,37 @@ data BruijnTerm =
     deriving Show
 
 toBruijnType :: Type -> [Name] -> ([Name], BruijnType)
---
 toBruijnType (Type varName) names =
     case elemIndex varName names of
         Just n -> (names, BType varName n)
         _ -> (names ++ [varName], BType varName (length names))
-        --
 toBruijnType (Arrow t1 t2) names = (newNames2, BArrow bt1 bt2)
     where
         (newNames1, bt1) = toBruijnType t1 names
         (newNames2, bt2) = toBruijnType t2 newNames1
-        --
 toBruijnType (Forall varName ty) names = (newNames, BForall varName bty)
     where
         newNamesWithVar = varName : names
         (newNames, bty) = toBruijnType ty newNamesWithVar
 
+
 toBruijn :: Term -> [Name] -> BruijnTerm
---
 toBruijn (LVar name) names = BLVar name
---
 toBruijn (LAbs name ty term) names = BLAbs name bty bterm
     where
         (ns, bty) = toBruijnType ty names
         bterm = toBruijn term ns
-        --
 toBruijn (LApp te1 te2) names = BLApp bte1 bte2
      where
         bte1 = toBruijn te1 names
         bte2 = toBruijn te2 names
-        --
 toBruijn (LTAbs name term) names = BLTAbs name bterm
     where
         bterm = toBruijn term (name : names)
-        --
 toBruijn (LTApp term ty) names = BLTApp bterm bty
     where
         (ns, bty) = toBruijnType ty names
         bterm = toBruijn term ns
-        --
 toBruijn (TermType ty) names = BTermType $ snd $ toBruijnType ty names
 
 -- Functions for Context --
@@ -118,7 +110,7 @@ getType ctx name = case filter (\x -> varN x == name) (termVar ctx) of
     l | null $ tail l ->  Right $ varType $ head l
     l -> Left $ "Error: Ambiguous type binding " ++ show (map showFormula l) ++ " !!!"
 
--- Type Checking --
+-- Functions for type substitution in de Bruijn notation --
 
 tymap :: (Int -> Int -> String -> BruijnType) -> Int -> BruijnType -> BruijnType
 tymap onvar c tyT = walk c tyT
@@ -143,6 +135,8 @@ typeSubst tyS = tymap
 typeSubstTop :: BruijnType -> BruijnType -> BruijnType
 typeSubstTop tyS tyT =
     typeShift (-1) (typeSubst (typeShift 1 tyS) 0 tyT)
+
+-- Type checking --
 
 typeOf :: Context -> BruijnTerm -> Either String BruijnType
 typeOf ctx term = do

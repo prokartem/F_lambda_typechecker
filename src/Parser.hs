@@ -32,23 +32,6 @@ data Term =
     | TermType Type
     deriving Show
 
--- data Binding =
---     NameBind
---     | VarBind Ty
---     | TyVarBind
-
--- typeShiftAbove :: Int -> Int -> Ty -> Ty
--- typeShiftAbove d c tyT = undefined
---     where
---         walk :: Int -> Ty -> Ty
---         walk c tyT = case tyT of
---             TyVar x n ->
---                 if x >= c
---                 then TyVar (x+d) (n+d)
---                 else TyVar x (n+d)
---             TyArr tyT1 tyT2 -> TyArr (walk c tyT1)  (walk c tyT2)
---             TyAll tyX tyT2 -> TyAll tyX (walk (c+1) tyT2)
-
 -- Language --
 
 def :: GenLanguageDef String st Identity
