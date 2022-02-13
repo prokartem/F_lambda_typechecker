@@ -11,20 +11,13 @@ import GHC.Generics (Constructor(conName))
 
 type Name = String
 
-data Binding =
-    NameBind
-    | VarBind BruijnType
-    | TyVarBind
-
--- type Context = [Binding]
-
 data Formula = Formula { varN :: Name, varType :: BruijnType }
 data Context = Context { typeVar :: [Name], termVar :: [Formula] }
 
 -- Unnamed Types (de Bruijn notation) --
 
 data BruijnType =
-    BType { distance :: Int }
+    BType { varName :: String, distance :: Int }
     | BArrow BruijnType BruijnType
     | BForall String BruijnType
     deriving (Show, Eq)
@@ -43,8 +36,8 @@ toBruijnType :: Type -> [Name] -> ([Name], BruijnType)
 --
 toBruijnType (Type varName) names =
     case elemIndex varName names of
-        Just n -> (names, BType n)
-        _ -> (names ++ [varName], BType (length names))
+        Just n -> (names, BType varName n)
+        _ -> (names ++ [varName], BType varName (length names))
         --
 toBruijnType (Arrow t1 t2) names = (newNames2, BArrow bt1 bt2)
     where
@@ -104,7 +97,7 @@ showType t = case t of
 
 showBruijnType :: BruijnType -> String
 showBruijnType t = case t of
-    BType num -> show num
+    BType n num -> n
     BForall name ttype ->
         "(Forall " ++ name ++ ". " ++ showBruijnType ttype ++ ")"
     BArrow type1 type2 ->
@@ -127,28 +120,28 @@ getType ctx name = case filter (\x -> varN x == name) (termVar ctx) of
 
 -- Type Checking --
 
-tymap :: (Int -> Int -> BruijnType) -> Int -> BruijnType -> BruijnType
+tymap :: (Int -> Int -> String -> BruijnType) -> Int -> BruijnType -> BruijnType
 tymap onvar c tyT = walk c tyT
     where
         walk :: Int -> BruijnType -> BruijnType
         walk c tyT = case tyT of
-            BType x -> onvar c x
+            BType v x -> onvar c x v
             BArrow tyT1 tyT2 -> BArrow (walk c tyT1) (walk c tyT2)
             BForall tyX tyT2 -> BForall tyX (walk (c+1) tyT2)
 
 typeShiftAbove :: Int -> Int -> BruijnType -> BruijnType
 typeShiftAbove d = tymap
-        (\c x -> if x >= c then BType (x+d) else BType x)
+        (\c x v-> if x >= c then BType v (x+d) else BType v x)
 
 typeShift :: Int -> BruijnType -> BruijnType
 typeShift d = typeShiftAbove d 0
 
 typeSubst :: BruijnType -> Int -> BruijnType -> BruijnType
 typeSubst tyS = tymap
-    (\j x -> if x == j then typeShift j tyS else BType x) 
+    (\j x v -> if x == j then typeShift j tyS else BType v x)
 
 typeSubstTop :: BruijnType -> BruijnType -> BruijnType
-typeSubstTop tyS tyT = 
+typeSubstTop tyS tyT =
     typeShift (-1) (typeSubst (typeShift 1 tyS) 0 tyT)
 
 typeOf :: Context -> BruijnTerm -> Either String BruijnType
