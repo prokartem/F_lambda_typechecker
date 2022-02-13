@@ -1,4 +1,4 @@
-# Type checker for simply typed lambda calculus
+# Type checker for polymorphic lambda calculus
 
 ## Syntax
 
